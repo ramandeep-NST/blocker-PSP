@@ -1,0 +1,70 @@
+import ast
+import functools
+import inspect   
+
+ 
+BLOCKED_LITERALS = [list, dict,set,tuple]   
+BLOCKED_FUNCTIONS = [
+    'eval', 'exec', 'sort', 'sorted', 'reverse', 
+    'reversed', 'list', 'str', 'max', 'min', 'set','tuple','dict','split'
+]  
+
+ 
+class BlockUsageVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.errors = []
+
+    def visit_Constant(self, node):
+         
+        if isinstance(node.value, tuple(BLOCKED_LITERALS)):
+            self.errors.append(f"Good morning!! '{node.value}'  is not allowed. Please read problem carefully.")
+        self.generic_visit(node)
+
+    def visit_List(self, node):
+         
+        self.errors.append(f"Good morning!! '[]'  is not allowed. Please read problem carefully.")
+        self.generic_visit(node)
+
+    def visit_Dict(self, node):
+        self.errors.append(f"Good morning!! '{{}}'  is not allowed. Please read problem carefully.")
+        self.generic_visit(node)
+
+    def visit_Tuple(self, node):
+
+        self.errors.append(f"Good morning!! '()'  is not allowed. Please read problem carefully.")
+        self.generic_visit(node)
+
+    def visit_Call(self, node):
+        if isinstance(node.func, ast.Name) and node.func.id in BLOCKED_FUNCTIONS:
+            self.errors.append(f"Good morning!! '{node.func.id}' is not allowed. Please read problem carefully.")
+        elif isinstance(node.func, ast.Attribute) and node.func.attr in BLOCKED_FUNCTIONS:
+            self.errors.append(f"Good morning!! '{node.func.attr}'  is not allowed. Please read problem carefully.")
+        self.generic_visit(node)
+
+# Decorator to block specific literals and functions
+def block_usage(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+         
+        source_code = inspect.getsource(func)
+
+       
+        try:
+            tree = ast.parse(source_code)
+        except SyntaxError as e:
+            raise SyntaxError(f"Syntax Error in function '{func.__name__}': {str(e)}")
+
+        
+        visitor = BlockUsageVisitor()
+        visitor.visit(tree)
+
+        
+        if visitor.errors:
+            raise RuntimeError("\n".join(visitor.errors))
+
+       
+        return func(*args, **kwargs)
+
+    return wrapper
+
+@block_usage
